@@ -87,7 +87,7 @@ def predict():
 
     # Determine class based on threshold
     predicted = 1 if output > 0.5 else 0  # 1 = defect, 0 = non-defective
-    class_names = ["Defect", "No defect"]
+    class_names = ["No Defect", "Defect"]
     return jsonify({"class_id": predicted, "class_name": class_names[predicted]})
 
 if __name__ == "__main__":
