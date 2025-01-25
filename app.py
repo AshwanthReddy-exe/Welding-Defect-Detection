@@ -5,17 +5,10 @@ from torch import nn
 from torchvision import transforms
 from PIL import Image
 import io
-import os
 
 # Initialize Flask app
-app = Flask(__name__,template_folder="templates")
-
-# Enable CORS (Cross-Origin Resource Sharing)
+app = Flask(__name__, template_folder="templates")
 CORS(app)
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
 
 class SurfaceDefectCNN(nn.Module):
     def __init__(self):
@@ -59,8 +52,7 @@ class SurfaceDefectCNN(nn.Module):
 
 # Load the trained model
 model = SurfaceDefectCNN()
-# model.load_state_dict(torch.load("model.pth", map_location=torch.device('cpu')))
-model.load_state_dict(torch.load("model85-acc.pth", weights_only=True, map_location=torch.device('cpu')))
+model.load_state_dict(torch.load("model85-acc.pth", map_location=torch.device('cpu')))
 model.eval()
 
 # Define the image transform
@@ -71,7 +63,6 @@ transform = transforms.Compose([
 
 @app.route("/", methods=["GET"])
 def index():
-    # Render the HTML page (index.html should be in the templates directory)
     return render_template("index.html")
 
 @app.route("/predict/", methods=["POST"])
@@ -85,7 +76,7 @@ def predict():
 
     # Read the image
     img_bytes = file.read()
-    image = Image.open(io.BytesIO(img_bytes))
+    image = Image.open(io.BytesIO(img_bytes)).convert("RGB")  # Ensure RGB format
 
     # Preprocess the image
     image = transform(image).unsqueeze(0)
@@ -100,6 +91,4 @@ def predict():
     return jsonify({"class_id": predicted, "class_name": class_names[predicted]})
 
 if __name__ == "__main__":
-#     # port = int(os.getenv("PORT", 8000))  # Default port is 8000
-#     # app.run(host="0.0.0.0", port=port)
     app.run(debug=True)
