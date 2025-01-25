@@ -52,7 +52,7 @@ class SurfaceDefectCNN(nn.Module):
 
 # Load the trained model
 model = SurfaceDefectCNN()
-model.load_state_dict(torch.load("model85-acc.pth", map_location=torch.device('cpu')))
+model.load_state_dict(torch.load("model85-acc.pth", weights_only = True , map_location=torch.device('cpu')))
 model.eval()
 
 # Define the image transform
