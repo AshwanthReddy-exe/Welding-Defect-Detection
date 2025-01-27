@@ -10,55 +10,83 @@ import io
 app = Flask(__name__, template_folder="templates")
 CORS(app)
 
-class SurfaceDefectCNN(nn.Module):
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MultiScaleCNN(nn.Module):
     def __init__(self):
-        super(SurfaceDefectCNN, self).__init__()
+        super(MultiScaleCNN, self).__init__()
+
+        # First shared convolutional layer
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)  # Common initial layer
+        self.bn1 = nn.BatchNorm2d(16)
+
+        # Multi-scale feature extraction
+        self.conv2_small = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)  # Small receptive field
+        self.bn2_small = nn.BatchNorm2d(32)
         
-        # Feature extraction
-        self.feature_extractor = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+        self.conv2_medium = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2)  # Medium receptive field
+        self.bn2_medium = nn.BatchNorm2d(32)
+        
+        self.conv2_large = nn.Conv2d(16, 32, kernel_size=7, stride=1, padding=3)  # Large receptive field
+        self.bn2_large = nn.BatchNorm2d(32)
 
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+        # Combine multi-scale features and process further
+        self.conv3 = nn.Conv2d(96, 64, kernel_size=3, stride=1, padding=1)  # Combine features from all scales
+        self.bn3 = nn.BatchNorm2d(64)
 
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-        )
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Dropout to prevent overfitting
+        self.dropout = nn.Dropout(0.5)
 
-        # Classification head
-        self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),  # Global average pooling
-            nn.Flatten(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(64, 1)  # Binary classification
-        )
+        # Fully connected layers
+        self.fc1 = nn.Linear(64 * 16 * 16, 256)  # Adjusted based on tensor size after pooling
+        self.dropout = nn.Dropout(0.25)
+        self.fc2 = nn.Linear(256, 128)
+        self.dropout = nn.Dropout(0.25)
+        self.fc3 = nn.Linear(128, 1)  # Single output for binary classification
 
     def forward(self, x):
-        # Extract features
-        features = self.feature_extractor(x)
+        # Shared initial feature extraction with BatchNorm and LeakyReLU
+        x = F.leaky_relu(self.bn1(self.conv1(x)))
+        x = self.pool(x)
 
-        # Classification output
-        x = self.classifier(features)
+        # Multi-scale feature extraction with BatchNorm and LeakyReLU
+        small_features = F.leaky_relu(self.bn2_small(self.conv2_small(x)))  # Small receptive field
+        medium_features = F.leaky_relu(self.bn2_medium(self.conv2_medium(x)))  # Medium receptive field
+        large_features = F.leaky_relu(self.bn2_large(self.conv2_large(x)))  # Large receptive field
+
+        # Concatenate features from all scales
+        x = torch.cat((small_features, medium_features, large_features), dim=1)
+
+        # Further processing with convolutional layer and BatchNorm
+        x = F.leaky_relu(self.bn3(self.conv3(x)))
+        x = self.pool(x)
+
+        # Flatten for fully connected layers
+        x = x.view(x.size(0), -1)
+
+        # Fully connected layers with Dropout
+        x = F.leaky_relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.leaky_relu(self.fc2(x))
+        x = self.fc3(x)  # No activation yet (logits)
+
         return x
 
-# Load the trained model
-model = SurfaceDefectCNN()
-model.load_state_dict(torch.load("model85-acc.pth", map_location=torch.device('cpu')))
+# Initialize the model
+model = MultiScaleCNN()
+
+model.load_state_dict(torch.load("best_model_new.pth", map_location=torch.device('cpu')))
 model.eval()
 
 # Define the image transform
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 @app.route("/", methods=["GET"])
