@@ -45,6 +45,7 @@ torch==2.5.1
 torchvision==0.20.1
 typing_extensions==4.12.2
 tzdata==2024.2
+unicorn==2.1.1
 urllib3==2.3.0
 uvicorn==0.22.0
 vercel==0.2.1
