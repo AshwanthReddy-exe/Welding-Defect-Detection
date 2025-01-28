@@ -83,13 +83,11 @@ model = MultiScaleCNN()
 model.load_state_dict(torch.load("best_model_new.pth", map_location=torch.device('cpu')))
 model.eval()
 
-mean = [0.5027, 0.4904, 0.4793]
-std = [0.2606, 0.2597, 0.2607]
 # Define the image transform
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=mean, std=std)
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 @app.route("/", methods=["GET"])
